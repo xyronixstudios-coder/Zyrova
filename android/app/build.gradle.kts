@@ -14,10 +14,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     defaultConfig {
         applicationId = "com.zyrova.zyrova"
         minSdk = flutter.minSdkVersion
@@ -35,24 +31,4 @@ android {
 
 flutter {
     source = "../.."
-}
-
-// 🔥 TÜM ALT PROJELER İÇİN JVM TARGET ZORLA
-subprojects {
-    afterEvaluate {
-        extensions.findByName("android")?.let {
-            (it as com.android.build.gradle.BaseExtension).apply {
-                compileOptions {
-                    sourceCompatibility = JavaVersion.VERSION_17
-                    targetCompatibility = JavaVersion.VERSION_17
-                }
-            }
-        }
-        
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile::class.java).configureEach {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
-        }
-    }
 }
