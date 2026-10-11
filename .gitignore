@@ -28,3 +28,9 @@ Thumbs.db
 # Cache
 .turbo/
 *.log
+
+# Gereksiz
+platform-*.zip
+[util.cc*
+*.bak
+*.zip
