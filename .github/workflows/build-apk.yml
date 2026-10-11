@@ -32,6 +32,8 @@ jobs:
 
       - name: Build APK
         run: flutter build apk --release
+        env:
+          GRADLE_OPTS: "-Xmx4g -XX:MaxMetaspaceSize=1g -Dorg.gradle.daemon=false"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
