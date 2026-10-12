@@ -229,6 +229,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
