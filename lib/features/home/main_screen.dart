@@ -26,23 +26,20 @@ class _MainScreenState extends State<MainScreen> {
   int _unreadNotifs = 0;
   RealtimeChannel? _notifChannel;
 
-  // late ile tanımla, initState'te oluştur
   late final List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
 
-    // ÖNCE ekranları oluştur
     _screens = [
-      HomeScreen(onAddStory: () => _goToUpload()),
+      HomeScreen(onAddStory: _goToUpload),
       const SearchScreen(),
       const UploadScreen(),
       const MessagesScreen(),
       const ProfileScreen(),
     ];
 
-    // Sonra cache ve bildirimler
     SmartCache.instance.init();
     _loadUnread();
     _subscribeNotifs();
@@ -185,77 +182,96 @@ class _MainScreenState extends State<MainScreen> {
     if (type == ScreenType.mobile) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        body: _screens[_index],
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (i) {
-            if (_index != i) setState(() => _index = i);
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.surface,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary,
-          items: [
-            BottomNavigationBarItem(
-                icon: const Icon(Icons.home), label: t.home),
-            BottomNavigationBarItem(
-                icon: const Icon(Icons.search), label: t.discover),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.add_box,
-                  size: 32, color: AppColors.primary),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: _badgeIcon(Icons.message, _unreadNotifs),
-              label: t.messages,
-            ),
-            BottomNavigationBarItem(
-                icon: const Icon(Icons.person), label: t.profile),
-          ],
+        // 🔥 SafeArea ile Android navigation bar'ından korun
+        body: SafeArea(
+          bottom: false, // Bottom nav için ayrı ayar
+          child: _screens[_index],
+        ),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: BottomNavigationBar(
+            currentIndex: _index,
+            onTap: (i) {
+              if (_index != i) setState(() => _index = i);
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: AppColors.surface,
+            selectedItemColor: AppColors.primary,
+            unselectedItemColor: AppColors.textSecondary,
+            elevation: 0,
+            items: [
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.home),
+                label: t.home,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.search),
+                label: t.discover,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.add_box,
+                    size: 32, color: AppColors.primary),
+                label: '',
+              ),
+              BottomNavigationBarItem(
+                icon: _badgeIcon(Icons.message, _unreadNotifs),
+                label: t.messages,
+              ),
+              BottomNavigationBarItem(
+                icon: const Icon(Icons.person),
+                label: t.profile,
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Row(
-        children: [
-          Container(
-            width: type == ScreenType.desktop ? 240 : 80,
-            color: AppColors.surface,
-            child: Column(
-              children: [
-                const SizedBox(height: 24),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    'assets/images/zyrova-logo.png',
-                    width: 44,
-                    height: 44,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.flash_on,
-                      color: AppColors.primary,
-                      size: 40,
+      body: SafeArea(
+        child: Row(
+          children: [
+            Container(
+              width: type == ScreenType.desktop ? 240 : 80,
+              color: AppColors.surface,
+              child: SafeArea(
+                right: false,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 24),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        'assets/images/zyrova-logo.png',
+                        width: 44,
+                        height: 44,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.flash_on,
+                          color: AppColors.primary,
+                          size: 40,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 32),
+                    _item(Icons.home, t.home, 0, type),
+                    _item(Icons.search, t.discover, 1, type),
+                    _item(Icons.add_box, t.upload, 2, type),
+                    _item(Icons.message, t.messages, 3, type,
+                        badge: _unreadNotifs),
+                    _item(Icons.person, t.profile, 4, type),
+                    const Spacer(),
+                    _item(Icons.notifications, t.notifications, 5, type,
+                        badge: _unreadNotifs, onTap: _openNotifications),
+                    _item(Icons.settings, t.settings, -1, type),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 32),
-                _item(Icons.home, t.home, 0, type),
-                _item(Icons.search, t.discover, 1, type),
-                _item(Icons.add_box, t.upload, 2, type),
-                _item(Icons.message, t.messages, 3, type,
-                    badge: _unreadNotifs),
-                _item(Icons.person, t.profile, 4, type),
-                const Spacer(),
-                _item(Icons.notifications, t.notifications, 5, type,
-                    badge: _unreadNotifs, onTap: _openNotifications),
-                _item(Icons.settings, t.settings, -1, type),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
-          ),
-          Expanded(child: _screens[_index]),
-        ],
+            Expanded(child: _screens[_index]),
+          ],
+        ),
       ),
     );
   }

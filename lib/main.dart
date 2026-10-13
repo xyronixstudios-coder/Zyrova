@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,10 +19,29 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔥 Sistem UI — status bar + navigation bar
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: Color(0xFF0A0A0A),
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
+
+  // 🔥 Edge-to-edge modu (navigation bar'ı şeffaf yapar)
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+  );
+
+  // 🔥 Portrait yön kilidi (isteğe bağlı)
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
   MediaKit.ensureInitialized();
 
-  // 🔥 12.5: Deep link başlat
   await DeepLinkService.init();
   DeepLinkService.onPasswordReset = (_) {
     navigatorKey.currentState?.pushAndRemoveUntil(

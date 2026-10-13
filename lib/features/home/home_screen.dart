@@ -10,6 +10,7 @@ import '../comments/comments_sheet.dart';
 import '../share/share_sheet.dart';
 import '../profile/user_profile_screen.dart';
 import '../story/story_bar.dart';
+import '../notifications/notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onAddStory;
@@ -60,6 +61,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadVideos();
   }
 
+  void _openNotifications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => const NotificationsListScreen()),
+    );
+  }
+
   @override
   void dispose() {
     _pageController.dispose();
@@ -72,14 +81,69 @@ class _HomeScreenState extends State<HomeScreen> {
     return SafeArea(
       child: Column(
         children: [
-          // 🔥 STORY BAR
+          // 🔥 ÜST BAŞLIK: Logo + Bildirim İkonu
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/images/zyrova-logo.png',
+                        width: 32,
+                        height: 32,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.flash_on,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Zyrova',
+                      style: TextStyle(
+                        color: AppColors.text,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                // 🔔 Bildirim ikonu
+                GestureDetector(
+                  onTap: _openNotifications,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.text,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // StoryBar
           StoryBar(
             onAddStory: widget.onAddStory,
           ),
 
           // Tab butonları
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -186,7 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// VİDEO OYNATICI
+// VİDEO OYNATICI (aynı kalıyor)
 class _VideoPlayer extends StatefulWidget {
   final UserVideo video;
   final bool isActive;
