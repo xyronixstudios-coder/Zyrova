@@ -83,10 +83,16 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _send() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
+    print('🔥 MESAJ GÖNDERILIYOR: $text');
+    print('🔥 CHAT ID: ${widget.chatId}');
     _ctrl.clear();
     setState(() => _sending = true);
     final ok = await ChatService.sendMessage(widget.chatId, text);
-    if (ok) await _load();
+    print('🔥 GÖNDERIM SONUCU: $ok');
+    if (ok) {
+      await _load();
+      print('🔥 MESAJLAR YÜKLENDI: ${_messages.length}');
+    }
     if (mounted) setState(() => _sending = false);
   }
 
@@ -380,8 +386,12 @@ class _ChatScreenState extends State<ChatScreen> {
               child: SafeArea(
                 top: false,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 6),
+                  padding: EdgeInsets.only(
+                    left: 4,
+                    right: 4,
+                    top: 6,
+                    bottom: 6 + MediaQuery.of(context).padding.bottom,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     border: Border(

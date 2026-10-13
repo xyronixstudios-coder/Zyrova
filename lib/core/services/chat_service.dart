@@ -137,7 +137,8 @@ class ChatService {
     try {
       final me = _db.auth.currentUser;
       if (me == null || me.id == otherUserId) return null;
-      if (!await isFriend(otherUserId)) return null;
+      // 🔥 GEÇİCİ: isFriend kontrolü kaldırıldı (test için)
+      // if (!await isFriend(otherUserId)) return null;
 
       final ids = [me.id, otherUserId]..sort();
       final u1 = ids[0];

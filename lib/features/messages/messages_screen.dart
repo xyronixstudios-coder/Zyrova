@@ -93,6 +93,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Widget build(BuildContext context) {
     final t = AppL.of(context);
     return SafeArea(
+      bottom: false,
       child: Column(
         children: [
           Padding(
@@ -117,6 +118,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     color: AppColors.primary,
                     backgroundColor: AppColors.card,
                     child: ListView(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).padding.bottom + 16,
+                      ),
                       children: [
                         if (_friends.isNotEmpty) ...[
                           Padding(

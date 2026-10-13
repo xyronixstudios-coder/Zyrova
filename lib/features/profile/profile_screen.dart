@@ -159,7 +159,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: AppColors.primary,
         backgroundColor: AppColors.card,
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+          ),
           children: [
             Stack(
               clipBehavior: Clip.none,
