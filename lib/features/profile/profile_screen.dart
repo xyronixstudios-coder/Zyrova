@@ -10,6 +10,7 @@ import '../auth/login_screen.dart';
 import '../settings/settings_screen.dart';
 import 'follow_list_screen.dart';
 import 'edit_profile_screen.dart';
+import 'video_grid.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -35,7 +36,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = await AuthService.getProfile();
     final videos = await VideoService.getMyVideos();
 
-    // Takipçi/takip sayıları
     if (user != null) {
       final counts = await FollowService.getCounts(user['id']);
       if (mounted) {
@@ -308,79 +308,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       fontWeight: FontWeight.w700)),
             ),
             const SizedBox(height: 12),
-            if (_videos.isEmpty)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.video_library_outlined,
-                        color: AppColors.textSecondary, size: 48),
-                    const SizedBox(height: 12),
-                    Text(t.noVideos,
-                        style: TextStyle(
-                            color: AppColors.textSecondary, fontSize: 14)),
-                  ],
-                ),
-              )
-            else
-              ..._videos.map((video) => Container(
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(Icons.play_arrow,
-                              color: AppColors.primary, size: 28),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(video.title,
-                                  style: TextStyle(
-                                      color: AppColors.text,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 4),
-                              Text(
-                                  video.caption.isEmpty
-                                      ? '—'
-                                      : video.caption,
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => _deleteVideo(video),
-                          icon: Icon(Icons.delete_outline,
-                              color: AppColors.error, size: 22),
-                        ),
-                      ],
-                    ),
-                  )),
+
+            // 🔥 GRID GÖRÜNÜM
+            VideoGrid(
+              videos: _videos,
+              canDelete: true,
+              onDelete: (video) => _deleteVideo(video),
+            ),
+
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

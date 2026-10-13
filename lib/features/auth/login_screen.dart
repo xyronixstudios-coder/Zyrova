@@ -1,8 +1,10 @@
-import '../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/auth_service.dart';
 import '../home/main_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,25 +17,36 @@ class _LoginScreenState extends State<LoginScreen> {
   final _userCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _answerCtrl = TextEditingController();
+
+  String _selectedQuestion = AuthService.securityQuestions.first;
   bool _loading = false;
   bool _isRegister = false;
 
   Future<void> _submit() async {
-    // Validasyon
-    if (_userCtrl.text.trim().isEmpty && _isRegister) {
-      _showSnack('Kullanıcı adı gerekli', AppColors.error);
-      return;
+    final t = AppL.of(context);
+
+    if (_isRegister) {
+      if (_userCtrl.text.trim().isEmpty) {
+        _showSnack(t.usernameRequired, AppColors.error);
+        return;
+      }
+      if (_answerCtrl.text.trim().isEmpty) {
+        _showSnack(t.securityAnswerRequired, AppColors.error);
+        return;
+      }
     }
+
     if (_emailCtrl.text.trim().isEmpty) {
-      _showSnack('E-posta gerekli', AppColors.error);
+      _showSnack(t.emailRequired, AppColors.error);
       return;
     }
     if (_passCtrl.text.length < 6) {
-      _showSnack('Şifre en az 6 karakter olmalı', AppColors.error);
+      _showSnack(t.passwordTooShort, AppColors.error);
       return;
     }
     if (!_emailCtrl.text.contains('@') || !_emailCtrl.text.contains('.')) {
-      _showSnack('Geçerli bir e-posta gir', AppColors.error);
+      _showSnack(t.invalidEmail, AppColors.error);
       return;
     }
 
@@ -41,28 +54,56 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       if (_isRegister) {
+        final prefs = await SharedPreferences.getInstance();
+        final langCode = prefs.getString('language') ??
+            Localizations.localeOf(context).languageCode;
+
         final res = await AuthService.signUp(
           email: _emailCtrl.text.trim(),
           password: _passCtrl.text.trim(),
           username: _userCtrl.text.trim(),
+          securityQuestion: _selectedQuestion,
+          securityAnswer: _answerCtrl.text.trim(),
+          languageCode: langCode,
         );
-        if (res == null) throw Exception('Kayıt başarısız');
+        if (res == null) throw Exception('Register failed');
+
+        if (res.user != null) {
+          if (res.session == null) {
+            final loginRes = await AuthService.signIn(
+              email: _emailCtrl.text.trim(),
+              password: _passCtrl.text.trim(),
+            );
+            if (loginRes?.session == null) {
+              throw Exception('Session failed');
+            }
+          }
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const MainScreen()),
+            );
+          }
+        } else {
+          throw Exception('Register failed');
+        }
       } else {
         final res = await AuthService.signIn(
           email: _emailCtrl.text.trim(),
           password: _passCtrl.text.trim(),
         );
-        if (res == null) throw Exception('Giriş başarısız');
-      }
-
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
+        if (res == null || res.session == null) {
+          throw Exception('Login failed');
+        }
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        }
       }
     } catch (e) {
-      _showSnack('Hata: $e', AppColors.error);
+      _showSnack('${t.error}: $e', AppColors.error);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -75,7 +116,18 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
+  void dispose() {
+    _userCtrl.dispose();
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _answerCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final t = AppL.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -98,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Center(
+                      child: const Center(
                         child: Text('Z',
                             style: TextStyle(
                                 color: Colors.white,
@@ -108,43 +160,108 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 Text(
-                  _isRegister ? 'Zyrova\'ya Kayıt Ol' : 'Zyrova\'ya Hoş Geldin',
+                  _isRegister ? t.welcomeRegister : t.welcomeBack,
                   style: TextStyle(
                     color: AppColors.text,
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Akıcı bir akış. Akıllı cache.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-                SizedBox(height: 32),
+                const SizedBox(height: 8),
+                Text(t.tagline,
+                    style: TextStyle(color: AppColors.textSecondary)),
+                const SizedBox(height: 32),
                 if (_isRegister) ...[
                   TextField(
                     controller: _userCtrl,
                     style: TextStyle(color: AppColors.text),
-                    decoration: _inputDecor('Kullanıcı adı', Icons.person),
+                    decoration: _inputDecor(t.usernameHint, Icons.person),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                 ],
                 TextField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   style: TextStyle(color: AppColors.text),
-                  decoration: _inputDecor('E-posta', Icons.email),
+                  decoration: _inputDecor(t.email, Icons.email),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _passCtrl,
                   obscureText: true,
                   style: TextStyle(color: AppColors.text),
-                  decoration: _inputDecor('Şifre (en az 6 karakter)', Icons.lock),
+                  decoration: _inputDecor(t.passwordHint, Icons.lock),
                 ),
-                SizedBox(height: 24),
+                if (_isRegister) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedQuestion,
+                        isExpanded: true,
+                        dropdownColor: AppColors.card,
+                        icon: Icon(Icons.arrow_drop_down,
+                            color: AppColors.primary),
+                        style: TextStyle(color: AppColors.text),
+                        items: AuthService.securityQuestions
+                            .map((q) => DropdownMenuItem(
+                                  value: q,
+                                  child: Text(q,
+                                      style: TextStyle(
+                                          color: AppColors.text,
+                                          fontSize: 13)),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedQuestion = v);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _answerCtrl,
+                    style: TextStyle(color: AppColors.text),
+                    decoration: _inputDecor(
+                        t.securityAnswerHint, Icons.shield_outlined),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    t.securityQuestionWarning,
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 11),
+                  ),
+                ],
+                if (!_isRegister)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        t.forgotPassword,
+                        style: TextStyle(
+                            color: AppColors.primary, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                SizedBox(height: _isRegister ? 24 : 8),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -158,28 +275,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     child: _loading
-                        ? SizedBox(
+                        ? const SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2),
                           )
                         : Text(
-                            _isRegister ? 'Kayıt Ol' : 'Giriş Yap',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w700),
+                            _isRegister ? t.register : t.login,
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700),
                           ),
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
                     setState(() => _isRegister = !_isRegister);
                   },
                   child: Text(
-                    _isRegister
-                        ? 'Hesabın var mı? Giriş yap'
-                        : 'Hesabın yok mu? Kayıt ol',
+                    _isRegister ? t.alreadyHaveAccount : t.dontHaveAccount,
                     style: TextStyle(color: AppColors.primary),
                   ),
                 ),

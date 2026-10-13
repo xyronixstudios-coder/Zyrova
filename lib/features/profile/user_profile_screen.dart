@@ -1,4 +1,3 @@
-import 'follow_list_screen.dart';
 import 'package:flutter/material.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
@@ -6,6 +5,8 @@ import '../../core/widgets/banner_widget.dart';
 import '../../core/services/profile_service.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/follow_service.dart';
+import 'follow_list_screen.dart';
+import 'video_grid.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -93,7 +94,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           elevation: 0,
         ),
         body: Center(
-          child: Text('Kullanıcı bulunamadı',
+          child: Text(t.userNotFoundTitle,
               style: TextStyle(color: AppColors.textSecondary)),
         ),
       );
@@ -117,7 +118,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
-            // BANNER + AVATAR
             Stack(
               clipBehavior: Clip.none,
               children: [
@@ -130,7 +130,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     pattern: bannerPattern,
                   ),
                 ),
-                // Geri butonu
                 Positioned(
                   top: 8,
                   left: 8,
@@ -142,7 +141,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     ),
                   ),
                 ),
-                // Avatar
                 Positioned(
                   bottom: -50,
                   left: 0,
@@ -180,8 +178,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ],
             ),
             const SizedBox(height: 60),
-
-            // KULLANICI BİLGİSİ
             Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -189,13 +185,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   if (isPrivate)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
-                      child: Icon(Icons.lock, color: AppColors.warning, size: 18),
+                      child: Icon(Icons.lock,
+                          color: AppColors.warning, size: 18),
                     ),
                   Text('@$username',
-                  style: TextStyle(
-                      color: AppColors.text,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700)),
+                      style: TextStyle(
+                          color: AppColors.text,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
@@ -211,8 +208,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             ],
             const SizedBox(height: 24),
-
-            // İSTATİSTİKLER
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -244,8 +239,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ],
             ),
             const SizedBox(height: 24),
-
-            // TAKİP BUTONU
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: SizedBox(
@@ -277,7 +270,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               strokeWidth: 2),
                         )
                       : Text(
-                          _isFollowing ? t.following : t.follow,
+                          _isFollowing ? t.unfollow : t.follow,
                           style: TextStyle(
                               fontSize: 15, fontWeight: FontWeight.w700),
                         ),
@@ -285,8 +278,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // VİDEOLAR BAŞLIĞI
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(t.posts,
@@ -297,63 +288,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
             const SizedBox(height: 12),
 
-            // VİDEOLAR
-            if (_videos.isEmpty)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.video_library_outlined,
-                        color: AppColors.textSecondary, size: 48),
-                    const SizedBox(height: 12),
-                    Text(t.noVideos,
-                        style: TextStyle(
-                            color: AppColors.textSecondary, fontSize: 14)),
-                  ],
-                ),
-              )
-            else
-              ..._videos.map((v) => Container(
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 4),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.play_arrow,
-                            color: AppColors.primary, size: 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(v.title,
-                                  style: TextStyle(
-                                      color: AppColors.text,
-                                      fontWeight: FontWeight.w600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              const SizedBox(height: 4),
-                              Text(v.caption.isEmpty ? '—' : v.caption,
-                                  style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
+            // 🔥 GRID GÖRÜNÜM
+            VideoGrid(videos: _videos),
+
             const SizedBox(height: 32),
           ],
         ),

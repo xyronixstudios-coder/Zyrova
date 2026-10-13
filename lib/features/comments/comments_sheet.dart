@@ -1,6 +1,5 @@
-import '../profile/user_profile_screen.dart';
-import '../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/comment_service.dart';
 import '../../core/services/auth_service.dart';
@@ -34,16 +33,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
   }
 
   Future<void> _load() async {
-    final user = await AuthService.getProfile();
     final comments = await CommentService.getComments(widget.videoId);
+    final currentUser = AuthService.currentUser;
     if (!mounted) return;
     setState(() {
       _comments = comments;
+      _myUserId = currentUser?.id;
       _loading = false;
     });
-    // userId'yi profile'dan al
-    final currentUser = AuthService.currentUser;
-    _myUserId = currentUser?.id;
   }
 
   Future<void> _send() async {
@@ -63,7 +60,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
         _comments.insert(0, comment);
       });
       widget.onCountChanged(_comments.length);
-      // Scroll to top
       if (_scrollCtrl.hasClients) {
         _scrollCtrl.animateTo(0,
             duration: const Duration(milliseconds: 300),
@@ -74,25 +70,25 @@ class _CommentsSheetState extends State<CommentsSheet> {
     if (mounted) setState(() => _sending = false);
   }
 
-  Future<void> _delete(Comment comment) async {
+  Future<void> _delete(Comment comment, AppStrings t) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: Text('Yorumu Sil',
+        title: Text(t.deleteCommentTitle,
             style: TextStyle(color: AppColors.text)),
-        content: Text('Bu yorumu silmek istediğine emin misin?',
+        content: Text(t.deleteCommentConfirm,
             style: TextStyle(color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('İptal',
+            child: Text(t.cancel,
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child:
-                Text('Sil', style: TextStyle(color: AppColors.error)),
+            child: Text(t.delete,
+                style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -109,11 +105,12 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
   String _timeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}dk';
-    if (diff.inHours < 24) return '${diff.inHours}sa';
-    if (diff.inDays < 7) return '${diff.inDays}g';
-    return '${(diff.inDays / 7).floor()}h';
+    if (diff.isNegative) return 'now';
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${(diff.inDays / 7).floor()}w';
   }
 
   @override
@@ -125,144 +122,141 @@ class _CommentsSheetState extends State<CommentsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.7,
-      minChildSize: 0.4,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    final t = AppL.of(context);
+    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Container(
+      height: screenHeight * 0.75,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.textSecondary,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.textSecondary,
-                  borderRadius: BorderRadius.circular(2),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.comment, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(
+                  '${_comments.length} ${t.comments}',
+                  style: TextStyle(
+                    color: AppColors.text,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              // Başlık
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.comment, color: AppColors.primary),
-                    SizedBox(width: 8),
-                    Text(
-                      '${_comments.length} Yorum',
-                      style: TextStyle(
-                        color: AppColors.text,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+              ],
+            ),
+          ),
+          Divider(color: AppColors.card, height: 1),
+          Expanded(
+            child: _loading
+                ? Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.primary))
+                : _comments.isEmpty
+                    ? _empty(t)
+                    : ListView.builder(
+                        controller: _scrollCtrl,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _comments.length,
+                        itemBuilder: (context, i) =>
+                            _commentItem(_comments[i], t),
                       ),
-                    ),
-                  ],
-                ),
+          ),
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 100),
+            padding: EdgeInsets.only(bottom: keyboardHeight),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                border: Border(
+                    top:
+                        BorderSide(color: AppColors.surface, width: 1)),
               ),
-              Divider(color: AppColors.card, height: 1),
-              // Liste
-              Expanded(
-                child: _loading
-                    ? Center(
-                        child: CircularProgressIndicator(
-                            color: AppColors.primary))
-                    : _comments.isEmpty
-                        ? _empty()
-                        : ListView.builder(
-                            controller: _scrollCtrl,
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _comments.length,
-                            itemBuilder: (context, i) =>
-                                _commentItem(_comments[i]),
-                          ),
-              ),
-              // Input
-              Container(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 12,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  border: Border(
-                      top: BorderSide(color: AppColors.surface, width: 1)),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _ctrl,
-                        style: TextStyle(color: AppColors.text),
-                        maxLines: null,
-                        decoration: InputDecoration(
-                          hintText: 'Yorum yaz...',
-                          hintStyle: TextStyle(
-                              color: AppColors.textSecondary),
-                          filled: true,
-                          fillColor: AppColors.surface,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ctrl,
+                      style: TextStyle(color: AppColors.text),
+                      maxLines: null,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: t.writeComment,
+                        hintStyle:
+                            TextStyle(color: AppColors.textSecondary),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
                         ),
                       ),
                     ),
-                    SizedBox(width: 8),
-                    IconButton(
-                      onPressed: _sending ? null : _send,
-                      icon: _sending
-                          ? SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  color: AppColors.primary, strokeWidth: 2),
-                            )
-                          : Icon(Icons.send,
-                              color: AppColors.primary),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _sending ? null : _send,
+                    icon: _sending
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                                strokeWidth: 2),
+                          )
+                        : Icon(Icons.send, color: AppColors.primary),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
-  Widget _empty() {
+  Widget _empty(AppStrings t) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.chat_bubble_outline,
               color: AppColors.textSecondary, size: 64),
-          SizedBox(height: 16),
-          Text('Henüz yorum yok',
+          const SizedBox(height: 16),
+          Text(t.noCommentsYet,
               style: TextStyle(
                   color: AppColors.text,
                   fontSize: 16,
                   fontWeight: FontWeight.w700)),
-          SizedBox(height: 8),
-          Text('İlk yorumu sen yap!',
+          const SizedBox(height: 8),
+          Text(t.firstComment,
               style: TextStyle(color: AppColors.textSecondary)),
         ],
       ),
     );
   }
 
-  Widget _commentItem(Comment comment) {
+  Widget _commentItem(Comment comment, AppStrings t) {
     final isMine = comment.userId == _myUserId;
 
     return Padding(
@@ -279,14 +273,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
             child: comment.authorAvatar.isEmpty
                 ? Text(
                     comment.author.replaceAll('@', '')[0].toUpperCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: 14),
                   )
                 : null,
           ),
-          SizedBox(width: 12),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,7 +295,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
                         fontSize: 14,
                       ),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
                       _timeAgo(comment.createdAt),
                       style: TextStyle(
@@ -310,16 +304,16 @@ class _CommentsSheetState extends State<CommentsSheet> {
                       ),
                     ),
                     if (isMine) ...[
-                      Spacer(),
+                      const Spacer(),
                       GestureDetector(
-                        onTap: () => _delete(comment),
+                        onTap: () => _delete(comment, t),
                         child: Icon(Icons.delete_outline,
                             color: AppColors.error, size: 18),
                       ),
                     ],
                   ],
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   comment.content,
                   style: TextStyle(

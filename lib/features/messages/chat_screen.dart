@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/chat_service.dart';
+import '../profile/user_profile_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -34,6 +37,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _sending = false;
   bool _showEmoji = false;
   String? _myId;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
@@ -41,6 +45,14 @@ class _ChatScreenState extends State<ChatScreen> {
     _myId = Supabase.instance.client.auth.currentUser?.id;
     _load();
     ChatService.markAsRead(widget.chatId);
+    _channel = ChatService.subscribeToChat(widget.chatId, (msg) {
+      if (!mounted) return;
+      if (msg.senderId == _myId) return;
+      if (_messages.any((m) => m.id == msg.id)) return;
+      setState(() => _messages.add(msg));
+      ChatService.markAsRead(widget.chatId);
+      _scrollDown();
+    });
     _focus.addListener(() {
       if (_focus.hasFocus && _showEmoji) {
         setState(() => _showEmoji = false);
@@ -61,11 +73,9 @@ class _ChatScreenState extends State<ChatScreen> {
   void _scrollDown() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scroll.hasClients) {
-        _scroll.animateTo(
-          _scroll.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
+        _scroll.animateTo(_scroll.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut);
       }
     });
   }
@@ -75,8 +85,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.isEmpty) return;
     _ctrl.clear();
     setState(() => _sending = true);
-    await ChatService.sendMessage(widget.chatId, text);
-    await _load();
+    final ok = await ChatService.sendMessage(widget.chatId, text);
+    if (ok) await _load();
     if (mounted) setState(() => _sending = false);
   }
 
@@ -110,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showMessageMenu(MessageModel m, bool isMe) {
+  void _showMessageMenu(MessageModel m, bool isMe, AppStrings t) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -132,7 +142,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             ListTile(
               leading: Icon(Icons.copy, color: AppColors.text),
-              title: Text('Kopyala',
+              title: Text(t.copy,
                   style: TextStyle(color: AppColors.text)),
               onTap: () async {
                 await Clipboard.setData(ClipboardData(text: m.content));
@@ -140,7 +150,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Kopyalandı'),
+                      content: Text(t.messageCopied),
                       backgroundColor: AppColors.success,
                       duration: const Duration(seconds: 1),
                     ),
@@ -152,11 +162,11 @@ class _ChatScreenState extends State<ChatScreen> {
               ListTile(
                 leading:
                     Icon(Icons.delete_outline, color: AppColors.error),
-                title: Text('Sil',
+                title: Text(t.deleteMessageAction,
                     style: TextStyle(color: AppColors.error)),
                 onTap: () {
                   Navigator.pop(context);
-                  _deleteMessage(m);
+                  _deleteMessage(m, t);
                 },
               ),
             const SizedBox(height: 8),
@@ -166,25 +176,25 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Future<void> _deleteMessage(MessageModel m) async {
+  Future<void> _deleteMessage(MessageModel m, AppStrings t) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: Text('Mesajı Sil',
+        title: Text(t.messageMenu,
             style: TextStyle(color: AppColors.text)),
-        content: Text('Bu mesajı silmek istediğine emin misin?',
+        content: Text(t.deleteMessage,
             style: TextStyle(color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('İptal',
+            child: Text(t.cancel,
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child:
-                Text('Sil', style: TextStyle(color: AppColors.error)),
+            child: Text(t.delete,
+                style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -209,6 +219,15 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _openProfile() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: widget.otherUserId),
+      ),
+    );
+  }
+
   String _time(DateTime d) {
     final h = d.hour.toString().padLeft(2, '0');
     final m = d.minute.toString().padLeft(2, '0');
@@ -217,6 +236,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _channel?.unsubscribe();
     _ctrl.dispose();
     _scroll.dispose();
     _focus.dispose();
@@ -225,42 +245,45 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Klavye yüksekliğini al
+    final t = AppL.of(context);
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Manuel yöneteceğiz
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.text,
         elevation: 0,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppColors.primary,
-              backgroundImage: widget.otherAvatar.isNotEmpty
-                  ? NetworkImage(widget.otherAvatar)
-                  : null,
-              child: widget.otherAvatar.isEmpty
-                  ? Text(widget.otherUsername[0].toUpperCase(),
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700))
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Text('@${widget.otherUsername}',
-                style: TextStyle(color: AppColors.text)),
-          ],
+        title: GestureDetector(
+          onTap: _openProfile,
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.primary,
+                backgroundImage: widget.otherAvatar.isNotEmpty
+                    ? NetworkImage(widget.otherAvatar)
+                    : null,
+                child: widget.otherAvatar.isEmpty
+                    ? Text(widget.otherUsername[0].toUpperCase(),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700))
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Text('@${widget.otherUsername}',
+                  style: TextStyle(color: AppColors.text)),
+            ],
+          ),
         ),
       ),
       body: SafeArea(
-        bottom: false, // Alt tarafta input var, onu ayrıca yöneteceğiz
+        bottom: false,
         child: Column(
           children: [
-            // MESAJLAR
             Expanded(
               child: _loading
                   ? Center(
@@ -268,7 +291,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           color: AppColors.primary))
                   : _messages.isEmpty
                       ? Center(
-                          child: Text('Mesaj yok',
+                          child: Text(t.noMessages,
                               style: TextStyle(
                                   color: AppColors.textSecondary)))
                       : ListView.builder(
@@ -279,7 +302,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             final m = _messages[i];
                             final isMe = m.senderId == _myId;
                             return GestureDetector(
-                              onLongPress: () => _showMessageMenu(m, isMe),
+                              onLongPress: () =>
+                                  _showMessageMenu(m, isMe, t),
                               child: Align(
                                 alignment: isMe
                                     ? Alignment.centerRight
@@ -350,7 +374,6 @@ class _ChatScreenState extends State<ChatScreen> {
                           },
                         ),
             ),
-            // INPUT - Klavye yüksekliği kadar padding + SafeArea
             AnimatedPadding(
               duration: const Duration(milliseconds: 100),
               padding: EdgeInsets.only(bottom: keyboardHeight),
@@ -371,7 +394,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         onPressed: _sending ? null : _pickImage,
                         icon: Icon(Icons.image,
                             color: AppColors.primary),
-                        tooltip: 'Fotoğraf',
+                        tooltip: t.photo,
                       ),
                       Expanded(
                         child: TextField(
@@ -385,7 +408,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             }
                           },
                           decoration: InputDecoration(
-                            hintText: 'Mesaj yaz...',
+                            hintText: t.messageHint,
                             hintStyle: TextStyle(
                                 color: AppColors.textSecondary),
                             filled: true,
@@ -407,20 +430,19 @@ class _ChatScreenState extends State<ChatScreen> {
                               : Icons.emoji_emotions_outlined,
                           color: AppColors.primary,
                         ),
-                        tooltip: 'Emoji',
+                        tooltip: t.emoji,
                       ),
                       IconButton(
                         onPressed: _sending ? null : _send,
                         icon: Icon(Icons.send,
                             color: AppColors.primary),
-                        tooltip: 'Gönder',
+                        tooltip: t.sendMessage,
                       ),
                     ],
                   ),
                 ),
               ),
             ),
-            // EMOJI PICKER
             if (_showEmoji)
               SizedBox(
                 height: 280,

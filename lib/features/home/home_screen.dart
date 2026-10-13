@@ -5,11 +5,16 @@ import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/video_service.dart';
 import '../../core/services/like_service.dart';
+import '../../core/navigation/route_observer.dart';
 import '../comments/comments_sheet.dart';
 import '../share/share_sheet.dart';
+import '../profile/user_profile_screen.dart';
+import '../story/story_bar.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final VoidCallback? onAddStory;
+
+  const HomeScreen({super.key, this.onAddStory});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -32,9 +37,14 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _loading = true);
     List<UserVideo> videos;
     switch (_tab) {
-      case 1: videos = await VideoService.getFollowingVideos(); break;
-      case 2: videos = await VideoService.getPopularVideos(); break;
-      default: videos = await VideoService.getDiscoverVideos();
+      case 1:
+        videos = await VideoService.getFollowingVideos();
+        break;
+      case 2:
+        videos = await VideoService.getPopularVideos();
+        break;
+      default:
+        videos = await VideoService.getDiscoverVideos();
     }
     if (!mounted) return;
     setState(() {
@@ -62,6 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return SafeArea(
       child: Column(
         children: [
+          // 🔥 STORY BAR
+          StoryBar(
+            onAddStory: widget.onAddStory,
+          ),
+
+          // Tab butonları
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -75,25 +91,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
+
           Expanded(
             child: _loading
-                ? Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? Center(
+                    child:
+                        CircularProgressIndicator(color: AppColors.primary))
                 : _videos.isEmpty
                     ? _empty(t)
-                    : RefreshIndicator(
-                        onRefresh: _loadVideos,
-                        color: AppColors.primary,
-                        backgroundColor: AppColors.card,
-                        child: PageView.builder(
-                          controller: _pageController,
-                          scrollDirection: Axis.vertical,
-                          itemCount: _videos.length,
-                          onPageChanged: (i) => setState(() => _currentIndex = i),
-                          itemBuilder: (context, i) => _VideoPlayer(
+                    : PageView.builder(
+                        controller: _pageController,
+                        scrollDirection: Axis.vertical,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        pageSnapping: true,
+                        allowImplicitScrolling: false,
+                        itemCount: _videos.length,
+                        onPageChanged: (i) {
+                          setState(() => _currentIndex = i);
+                        },
+                        itemBuilder: (context, i) {
+                          final isActive = i == _currentIndex;
+                          return _VideoPlayer(
+                            key: ValueKey('video_${_videos[i].id}'),
                             video: _videos[i],
-                            isActive: i == _currentIndex,
-                          ),
-                        ),
+                            isActive: isActive,
+                          );
+                        },
                       ),
           ),
         ],
@@ -107,13 +130,20 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: () => _switchTab(index),
       child: Column(
         children: [
-          Text(label, style: TextStyle(
-            color: active ? AppColors.text : AppColors.textSecondary,
-            fontSize: 16,
-            fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-          )),
+          Text(
+            label,
+            style: TextStyle(
+              color: active ? AppColors.text : AppColors.textSecondary,
+              fontSize: 16,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
           const SizedBox(height: 4),
-          Container(height: 2, width: active ? 24 : 0, color: AppColors.primary),
+          Container(
+            height: 2,
+            width: active ? 24 : 0,
+            color: AppColors.primary,
+          ),
         ],
       ),
     );
@@ -134,14 +164,18 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.video_library_outlined, size: 80,
+                  Icon(Icons.video_library_outlined,
+                      size: 80,
                       color: AppColors.textSecondary.withOpacity(0.5)),
                   const SizedBox(height: 24),
-                  Text(msg, style: TextStyle(
-                      color: AppColors.text, fontSize: 20,
-                      fontWeight: FontWeight.w700)),
+                  Text(msg,
+                      style: TextStyle(
+                          color: AppColors.text,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
-                  Text(t.uploadFirst, style: TextStyle(color: AppColors.textSecondary)),
+                  Text(t.uploadFirst,
+                      style: TextStyle(color: AppColors.textSecondary)),
                 ],
               ),
             ),
@@ -152,23 +186,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// VİDEO OYNATICI
 class _VideoPlayer extends StatefulWidget {
   final UserVideo video;
   final bool isActive;
 
-  const _VideoPlayer({required this.video, required this.isActive});
+  const _VideoPlayer({
+    super.key,
+    required this.video,
+    required this.isActive,
+  });
 
   @override
   State<_VideoPlayer> createState() => _VideoPlayerState();
 }
 
-class _VideoPlayerState extends State<_VideoPlayer> {
+class _VideoPlayerState extends State<_VideoPlayer> with RouteAware {
   late final Player _player;
   late final VideoController _controller;
   bool _initialized = false;
   bool _liked = false;
   int _likes = 0;
   int _comments = 0;
+  bool _subscribed = false;
 
   @override
   void initState() {
@@ -195,21 +235,45 @@ class _VideoPlayerState extends State<_VideoPlayer> {
         if (mounted) setState(() => _initialized = true);
       }
     });
+
+    if (widget.isActive) _player.play();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_subscribed) {
+      final route = ModalRoute.of(context);
+      if (route is PageRoute) {
+        routeObserver.subscribe(this, route);
+        _subscribed = true;
+      }
+    }
+  }
+
+  @override
+  void didPushNext() => _player.pause();
+
+  @override
+  void didPopNext() {
     if (widget.isActive) _player.play();
   }
 
   @override
   void didUpdateWidget(covariant _VideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isActive && !oldWidget.isActive) {
-      _player.play();
-    } else if (!widget.isActive && oldWidget.isActive) {
-      _player.pause();
+    if (widget.isActive != oldWidget.isActive) {
+      if (widget.isActive) {
+        _player.play();
+      } else {
+        _player.pause();
+      }
     }
   }
 
   @override
   void dispose() {
+    if (_subscribed) routeObserver.unsubscribe(this);
     _player.dispose();
     super.dispose();
   }
@@ -232,6 +296,7 @@ class _VideoPlayerState extends State<_VideoPlayer> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => CommentsSheet(
         videoId: widget.video.id,
         onCountChanged: (count) {
@@ -245,48 +310,90 @@ class _VideoPlayerState extends State<_VideoPlayer> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (_) => ShareSheet(
         videoUrl: widget.video.videoUrl,
         videoTitle: widget.video.title,
+        thumbnailUrl: widget.video.thumbnailUrl,
+        authorUsername: widget.video.author,
+      ),
+    );
+  }
+
+  void _openProfile() {
+    if (widget.video.authorId.isEmpty) return;
+    _player.pause();
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: widget.video.authorId),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = AppL.of(context);
+    final w = _player.state.width?.toDouble() ?? 1080;
+    final h = _player.state.height?.toDouble() ?? 1920;
+    final aspectRatio = (w > 0 && h > 0) ? w / h : 9 / 16;
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 🔥 TAM EKRAN VIDEO
-        if (_initialized)
-          SizedBox.expand(
-            child: FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: _player.state.width?.toDouble() ?? 1080,
-                height: _player.state.height?.toDouble() ?? 1920,
-                child: Video(controller: _controller),
-              ),
-            ),
-          )
-        else
-          Container(
-            color: AppColors.card,
-            child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
-          ),
-        // Alt gradyan
+        Container(
+          color: Colors.black,
+          child: _initialized
+              ? Center(
+                  child: AspectRatio(
+                    aspectRatio: aspectRatio,
+                    child: Video(controller: _controller),
+                  ),
+                )
+              : Center(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (widget.video.thumbnailUrl.isNotEmpty)
+                        Image.network(
+                          widget.video.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              Container(color: Colors.black),
+                        ),
+                      Container(color: Colors.black.withOpacity(0.4)),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(
+                                color: AppColors.primary),
+                            const SizedBox(height: 16),
+                            Text(t.loading,
+                                style: const TextStyle(
+                                    color: Colors.white70)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
         IgnorePointer(
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.transparent, Colors.black.withOpacity(0.6)],
+                colors: [
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.6),
+                ],
               ),
             ),
           ),
         ),
-        // Alt bilgi
         Positioned(
           left: 16,
           right: 80,
@@ -294,36 +401,81 @@ class _VideoPlayerState extends State<_VideoPlayer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.primary,
-                    backgroundImage: widget.video.authorAvatar.isNotEmpty
-                        ? NetworkImage(widget.video.authorAvatar)
-                        : null,
-                    child: widget.video.authorAvatar.isEmpty
-                        ? Text(widget.video.author.replaceAll('@', '')[0].toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(widget.video.author,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
-                ],
+              GestureDetector(
+                onTap: _openProfile,
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppColors.primary,
+                      backgroundImage: widget.video.authorAvatar.isNotEmpty
+                          ? NetworkImage(widget.video.authorAvatar)
+                          : null,
+                      child: widget.video.authorAvatar.isEmpty
+                          ? Text(
+                              widget.video.author
+                                  .replaceAll('@', '')[0]
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      widget.video.author,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 8),
               if (widget.video.title.isNotEmpty)
-                Text(widget.video.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                Text(
+                  widget.video.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               const SizedBox(height: 4),
-              Text(widget.video.caption,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(
+                widget.video.caption,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (widget.video.musicName.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.music_note,
+                        color: Colors.white, size: 14),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.video.musicName,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
-        // Sağ aksiyonlar
         Positioned(
           right: 12,
           bottom: 80,
@@ -333,10 +485,15 @@ class _VideoPlayerState extends State<_VideoPlayer> {
                 onTap: _toggleLike,
                 child: Column(
                   children: [
-                    Icon(_liked ? Icons.favorite : Icons.favorite_border,
-                        color: _liked ? AppColors.error : Colors.white, size: 34),
+                    Icon(
+                      _liked ? Icons.favorite : Icons.favorite_border,
+                      color: _liked ? AppColors.error : Colors.white,
+                      size: 34,
+                    ),
                     const SizedBox(height: 4),
-                    Text('$_likes', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    Text('$_likes',
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12)),
                   ],
                 ),
               ),
@@ -345,20 +502,25 @@ class _VideoPlayerState extends State<_VideoPlayer> {
                 onTap: _openComments,
                 child: Column(
                   children: [
-                    const Icon(Icons.comment, color: Colors.white, size: 34),
+                    const Icon(Icons.comment,
+                        color: Colors.white, size: 34),
                     const SizedBox(height: 4),
-                    Text('$_comments', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    Text('$_comments',
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12)),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               GestureDetector(
                 onTap: _openShare,
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(Icons.share, color: Colors.white, size: 34),
-                    SizedBox(height: 4),
-                    Text('Paylaş', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    const Icon(Icons.share, color: Colors.white, size: 34),
+                    const SizedBox(height: 4),
+                    Text(t.share,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12)),
                   ],
                 ),
               ),

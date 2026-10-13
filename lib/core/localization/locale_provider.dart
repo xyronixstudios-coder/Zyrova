@@ -8,8 +8,17 @@ class LocaleProvider extends ChangeNotifier {
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
-    final code = p.getString('language') ?? 'tr';
-    _locale = Locale(code);
+    final saved = p.getString('language');
+
+    if (saved != null) {
+      // Kullanıcı daha önce dil seçmiş → onu kullan
+      _locale = Locale(saved);
+    } else {
+      // İlk açılış → cihaz dilini al
+      final deviceLang =
+          WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+      _locale = deviceLang == 'tr' ? const Locale('tr') : const Locale('en');
+    }
     notifyListeners();
   }
 

@@ -1,5 +1,5 @@
-import '../../core/localization/app_localizations.dart';
 import 'package:flutter/material.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/smart_cache.dart';
 import '../../core/utils/responsive.dart';
@@ -15,26 +15,24 @@ class _CacheScreenState extends State<CacheScreen> {
   final _cache = SmartCache.instance;
   bool _loading = false;
 
-  Future<void> _clearCache() async {
+  Future<void> _clearCache(AppStrings t) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: Text('Cache Temizle',
+        title: Text(t.cacheTitle,
             style: TextStyle(color: AppColors.text)),
-        content: Text(
-          'Tum onbellek silinecek. Emin misin?',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
+        content: Text(t.cacheConfirm,
+            style: TextStyle(color: AppColors.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Iptal',
+            child: Text(t.cancel,
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Temizle',
+            child: Text(t.cacheClear,
                 style: TextStyle(color: AppColors.error)),
           ),
         ],
@@ -47,8 +45,8 @@ class _CacheScreenState extends State<CacheScreen> {
     if (mounted) {
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cache temizlendi'),
+        SnackBar(
+          content: Text(t.cacheCleared),
           backgroundColor: AppColors.success,
         ),
       );
@@ -57,13 +55,12 @@ class _CacheScreenState extends State<CacheScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppL.of(context);
     final stats = _cache.getStats();
     final sizeMB = stats['sizeMB'] as double;
     final maxMB = stats['maxMB'] as double;
     final percent = stats['usagePercent'] as double;
     final count = stats['count'] as int;
-
-    final isDesktop = Responsive.isDesktop(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -72,7 +69,7 @@ class _CacheScreenState extends State<CacheScreen> {
         foregroundColor: AppColors.text,
         elevation: 0,
         title: Text(
-          'Depolama ve Cache',
+          t.storageCache,
           style: TextStyle(
             color: AppColors.text,
             fontSize: 20,
@@ -88,7 +85,6 @@ class _CacheScreenState extends State<CacheScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Büyük gösterge
                 Container(
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
@@ -137,9 +133,9 @@ class _CacheScreenState extends State<CacheScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
                       Text(
-                        '$count video onbellekte',
+                        '$count videos',
                         style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 15,
@@ -148,28 +144,24 @@ class _CacheScreenState extends State<CacheScreen> {
                     ],
                   ),
                 ),
-
-                SizedBox(height: 24),
-
-                // Bilgi kutusu
+                const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    border: Border.all(
+                        color: AppColors.primary.withOpacity(0.3)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline,
                           color: AppColors.primary, size: 20),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'SmartCache, izledigin videolari gecici olarak saklar. '
-                          '200 MB sinirina ulasinca en eski videolar silinir.',
+                          t.cacheDesc,
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 13,
@@ -180,12 +172,9 @@ class _CacheScreenState extends State<CacheScreen> {
                     ],
                   ),
                 ),
-
-                SizedBox(height: 24),
-
-                // Temizle butonu
+                const SizedBox(height: 24),
                 OutlinedButton.icon(
-                  onPressed: _loading ? null : _clearCache,
+                  onPressed: _loading ? null : () => _clearCache(t),
                   icon: _loading
                       ? SizedBox(
                           width: 16,
@@ -196,9 +185,10 @@ class _CacheScreenState extends State<CacheScreen> {
                       : Icon(Icons.delete_outline,
                           color: AppColors.error),
                   label: Text(
-                    'Cache Temizle',
+                    t.cacheClear,
                     style: TextStyle(
-                        color: AppColors.error, fontWeight: FontWeight.w600),
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w600),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.error),

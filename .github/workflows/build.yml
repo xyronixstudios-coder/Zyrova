@@ -1,0 +1,50 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: 🎯 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: 📦 Flutter Pub Get
+        run: flutter pub get
+
+      - name: 🔧 Build APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: 📤 Upload APK (arm64-v8a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyrova-arm64
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+
+      - name: 📤 Upload APK (armeabi-v7a)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyrova-arm32
+          path: build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
+
+      - name: 📤 Upload APK (universal)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zyrova-universal
+          path: build/app/outputs/flutter-apk/app-release.apk

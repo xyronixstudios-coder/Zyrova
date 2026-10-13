@@ -72,10 +72,7 @@ class SettingsScreen extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          print('🔥 $l → Navigator.push');
-          onTap();
-        },
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Row(

@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/chat_service.dart';
 import 'chat_screen.dart';
+import '../profile/user_profile_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -15,22 +18,33 @@ class _MessagesScreenState extends State<MessagesScreen> {
   List<ChatModel> _chats = [];
   List<FriendModel> _friends = [];
   bool _loading = true;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
     super.initState();
     _load();
+    try {
+      _channel = ChatService.subscribeToMyChats(() {
+        if (mounted) _load();
+      });
+    } catch (e) {
+      print('Realtime chat subscribe error: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _load() async {
     final chats = await ChatService.getMyChats();
     final friends = await ChatService.getMyFriends();
-
-    // Chat'i olmayan arkadaşları bul
     final chatUserIds = chats.map((c) => c.otherUserId).toSet();
     final friendsWithoutChat =
         friends.where((f) => !chatUserIds.contains(f.userId)).toList();
-
     if (!mounted) return;
     setState(() {
       _chats = chats;
@@ -42,7 +56,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> _openChat(FriendModel friend) async {
     final chatId = await ChatService.getOrCreateChat(friend.userId);
     if (chatId == null || !mounted) return;
-
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -57,15 +70,23 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _load();
   }
 
-  String _timeAgo(DateTime d) {
-    final now = DateTime.now();
-    final diff = now.difference(d);
-    if (diff.isNegative) return 'şimdi';
-    if (diff.inMinutes < 1) return 'şimdi';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}dk';
-    if (diff.inHours < 24) return '${diff.inHours}sa';
-    if (diff.inDays < 7) return '${diff.inDays}g';
-    return '${(diff.inDays / 7).floor()}h';
+  void _openProfile(String userId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UserProfileScreen(userId: userId),
+      ),
+    );
+  }
+
+  String _timeAgo(DateTime d, AppStrings t) {
+    final diff = DateTime.now().difference(d);
+    if (diff.isNegative) return t.justNow;
+    if (diff.inMinutes < 1) return t.justNow;
+    if (diff.inMinutes < 60) return '${diff.inMinutes}${t.minutesAgo}';
+    if (diff.inHours < 24) return '${diff.inHours}${t.hoursAgo}';
+    if (diff.inDays < 7) return '${diff.inDays}${t.daysAgo}';
+    return '${(diff.inDays / 7).floor()}${t.weeksAgo}';
   }
 
   @override
@@ -77,7 +98,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(t.messages,
                     style: TextStyle(
@@ -98,12 +118,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     backgroundColor: AppColors.card,
                     child: ListView(
                       children: [
-                        // ARKADAŞLAR (chat'i olmayanlar)
                         if (_friends.isNotEmpty) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 8),
-                            child: Text('Arkadaşlar',
+                            child: Text(t.friends,
                                 style: TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 13,
@@ -120,6 +139,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 final f = _friends[i];
                                 return GestureDetector(
                                   onTap: () => _openChat(f),
+                                  onLongPress: () =>
+                                      _openProfile(f.userId),
                                   child: Container(
                                     width: 80,
                                     margin: const EdgeInsets.symmetric(
@@ -141,7 +162,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                                   ? Text(
                                                       f.username[0]
                                                           .toUpperCase(),
-                                                      style: TextStyle(
+                                                      style: const TextStyle(
                                                           color: Colors.white,
                                                           fontSize: 22,
                                                           fontWeight:
@@ -185,11 +206,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           ),
                           Divider(color: AppColors.card),
                         ],
-                        // SOHBETLER
                         if (_chats.isEmpty && _friends.isEmpty)
                           _empty(t)
                         else
-                          ..._chats.map((c) => _chatTile(c)),
+                          ..._chats.map((c) => _chatTile(c, t)),
                       ],
                     ),
                   ),
@@ -209,13 +229,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
             Icon(Icons.message_outlined,
                 size: 80, color: AppColors.textSecondary.withOpacity(0.5)),
             const SizedBox(height: 24),
-            Text('Henüz arkadaşın yok',
+            Text(t.noFriendsYet,
                 style: TextStyle(
                     color: AppColors.text,
                     fontSize: 18,
                     fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Karşılıklı takipleşince burada görünür',
+            Text(t.mutualFollowRequired,
                 style: TextStyle(color: AppColors.textSecondary),
                 textAlign: TextAlign.center),
           ],
@@ -224,7 +244,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
-  Widget _chatTile(ChatModel c) {
+  Widget _chatTile(ChatModel c, AppStrings t) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -246,30 +266,36 @@ class _MessagesScreenState extends State<MessagesScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: AppColors.primary,
-                backgroundImage: c.otherAvatar.isNotEmpty
-                    ? NetworkImage(c.otherAvatar)
-                    : null,
-                child: c.otherAvatar.isEmpty
-                    ? Text(c.otherUsername[0].toUpperCase(),
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 20))
-                    : null,
+              GestureDetector(
+                onTap: () => _openProfile(c.otherUserId),
+                child: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: AppColors.primary,
+                  backgroundImage: c.otherAvatar.isNotEmpty
+                      ? NetworkImage(c.otherAvatar)
+                      : null,
+                  child: c.otherAvatar.isEmpty
+                      ? Text(c.otherUsername[0].toUpperCase(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 20))
+                      : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('@${c.otherUsername}',
-                        style: TextStyle(
-                            color: AppColors.text,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15)),
+                    GestureDetector(
+                      onTap: () => _openProfile(c.otherUserId),
+                      child: Text('@${c.otherUsername}',
+                          style: TextStyle(
+                              color: AppColors.text,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15)),
+                    ),
                     const SizedBox(height: 4),
                     Text(c.lastMessage.isEmpty ? '—' : c.lastMessage,
                         style: TextStyle(
@@ -282,7 +308,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(_timeAgo(c.lastMessageAt),
+                  Text(_timeAgo(c.lastMessageAt, t),
                       style: TextStyle(
                           color: AppColors.textSecondary, fontSize: 11)),
                   if (c.unreadCount > 0) ...[
@@ -295,7 +321,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text('${c.unreadCount}',
-                          style: TextStyle(
+                          style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w700)),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -162,7 +163,6 @@ class ChatService {
     }
   }
 
-  // Metin mesajı
   static Future<bool> sendMessage(String chatId, String content) async {
     try {
       final me = _db.auth.currentUser;
@@ -185,7 +185,6 @@ class ChatService {
     }
   }
 
-  // Fotoğraf mesajı
   static Future<bool> sendImageMessage(
       String chatId, File imageFile) async {
     try {
@@ -215,7 +214,6 @@ class ChatService {
     }
   }
 
-  // Mesaj sil
   static Future<bool> deleteMessage(String messageId) async {
     try {
       await _db.from('messages').delete().eq('id', messageId);
@@ -240,6 +238,56 @@ class ChatService {
     } catch (e) {
       return [];
     }
+  }
+
+  // 🔥 REALTIME: Belirli bir chat'teki yeni mesajları dinle
+  static RealtimeChannel subscribeToChat(
+    String chatId,
+    void Function(MessageModel) onNewMessage,
+  ) {
+    final channel = _db.channel('chat_$chatId');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'messages',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'chat_id',
+            value: chatId,
+          ),
+          callback: (payload) {
+            try {
+              final msg = MessageModel.fromJson(payload.newRecord);
+              onNewMessage(msg);
+            } catch (e) {
+              print('Realtime parse error: $e');
+            }
+          },
+        )
+        .subscribe();
+    return channel;
+  }
+
+  // 🔥 REALTIME: Kullanıcının tüm chat'lerini dinle
+  static RealtimeChannel subscribeToMyChats(
+    void Function() onChatUpdate,
+  ) {
+    final me = _db.auth.currentUser;
+    if (me == null) throw Exception('Not logged in');
+
+    final channel = _db.channel('my_chats_${me.id}');
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chats',
+          callback: (payload) {
+            onChatUpdate();
+          },
+        )
+        .subscribe();
+    return channel;
   }
 
   static Future<List<ChatModel>> getMyChats() async {

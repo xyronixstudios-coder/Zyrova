@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
@@ -47,10 +48,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: ListView(
         children: [
-          _s(t.likes, _likes, (v) { setState(() => _likes = v); _save('notif_likes', v); }),
-          _s(t.comments, _comments, (v) { setState(() => _comments = v); _save('notif_comments', v); }),
-          _s(t.followers, _follows, (v) { setState(() => _follows = v); _save('notif_follows', v); }),
-          _s(t.follow, _mentions, (v) { setState(() => _mentions = v); _save('notif_mentions', v); }),
+          _s(t.likes, _likes, (v) {
+            setState(() => _likes = v);
+            _save('notif_likes', v);
+          }),
+          _s(t.comments, _comments, (v) {
+            setState(() => _comments = v);
+            _save('notif_comments', v);
+          }),
+          _s(t.followers, _follows, (v) {
+            setState(() => _follows = v);
+            _save('notif_follows', v);
+          }),
+          _s(t.follow, _mentions, (v) {
+            setState(() => _mentions = v);
+            _save('notif_mentions', v);
+          }),
         ],
       ),
     );

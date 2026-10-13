@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 
 class PrivacyScreen extends StatefulWidget {
   const PrivacyScreen({super.key});
+
   @override
   State<PrivacyScreen> createState() => _PrivacyScreenState();
 }
@@ -43,7 +44,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
     }
   }
 
-  Future<void> _togglePrivate(bool value) async {
+  Future<void> _togglePrivate(bool value, AppStrings t) async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
@@ -57,9 +58,8 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(value
-                ? 'Gizli hesap açıldı'
-                : 'Gizli hesap kapatıldı'),
+            content: Text(
+                value ? t.privateAccountOn : t.privateAccountOff),
             backgroundColor: AppColors.success,
           ),
         );
@@ -68,7 +68,7 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: $e'),
+            content: Text('${t.error}: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -99,29 +99,29 @@ class _PrivacyScreenState extends State<PrivacyScreen> {
         children: [
           SwitchListTile(
             activeColor: AppColors.primary,
-            title: Text('Gizli Hesap',
+            title: Text(t.privateAccount,
                 style: TextStyle(
-                    color: AppColors.text, fontWeight: FontWeight.w600)),
-            subtitle: Text(
-                'Sadece takipçilerin videolarını görebilir',
+                    color: AppColors.text,
+                    fontWeight: FontWeight.w600)),
+            subtitle: Text(t.privateAccountDesc,
                 style: TextStyle(color: AppColors.textSecondary)),
             value: _privateAccount,
-            onChanged: _togglePrivate,
+            onChanged: (v) => _togglePrivate(v, t),
           ),
           SwitchListTile(
             activeColor: AppColors.primary,
-            title: Text('Aktivite Durumu',
+            title: Text(t.activityStatus,
                 style: TextStyle(color: AppColors.text)),
-            subtitle: Text('Çevrimiçi durumunu göster',
+            subtitle: Text(t.activityStatusDesc,
                 style: TextStyle(color: AppColors.textSecondary)),
             value: _showActivity,
             onChanged: (v) => setState(() => _showActivity = v),
           ),
           SwitchListTile(
             activeColor: AppColors.primary,
-            title: Text('Etiketlemeye İzin Ver',
+            title: Text(t.allowTags,
                 style: TextStyle(color: AppColors.text)),
-            subtitle: Text('Başkaları seni etiketleyebilir',
+            subtitle: Text(t.allowTagsDesc,
                 style: TextStyle(color: AppColors.textSecondary)),
             value: _allowTags,
             onChanged: (v) => setState(() => _allowTags = v),

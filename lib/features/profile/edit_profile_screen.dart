@@ -33,20 +33,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     '#000000', '#424242', '#FFFFFF', '#E0E0E0',
   ];
 
-  final _bannerTypes = [
-    {'value': 'solid', 'tr': 'Düz', 'en': 'Solid'},
-    {'value': 'gradient', 'tr': 'Gradient', 'en': 'Gradient'},
-    {'value': 'pattern', 'tr': 'Desen', 'en': 'Pattern'},
-  ];
-
-  final _patterns = [
-    {'value': 'none', 'tr': 'Yok', 'en': 'None'},
-    {'value': 'dots', 'tr': 'Noktalar', 'en': 'Dots'},
-    {'value': 'stripes', 'tr': 'Çizgiler', 'en': 'Stripes'},
-    {'value': 'waves', 'tr': 'Dalgalar', 'en': 'Waves'},
-    {'value': 'circles', 'tr': 'Daireler', 'en': 'Circles'},
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -103,7 +89,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final t = AppL.of(context);
-    final isEn = Localizations.localeOf(context).languageCode == 'en';
+
+    final bannerTypes = [
+      {'value': 'solid', 'label': t.solid},
+      {'value': 'gradient', 'label': t.gradient},
+      {'value': 'pattern', 'label': t.pattern},
+    ];
+
+    final patterns = [
+      {'value': 'none', 'label': t.none},
+      {'value': 'dots', 'label': t.dots},
+      {'value': 'stripes', 'label': t.stripes},
+      {'value': 'waves', 'label': t.waves},
+      {'value': 'circles', 'label': t.circles},
+    ];
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -215,7 +214,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
                   Row(
-                    children: _bannerTypes.map((bt) {
+                    children: bannerTypes.map((bt) {
                       final selected = _bannerType == bt['value'];
                       return Expanded(
                         child: GestureDetector(
@@ -234,7 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                isEn ? bt['en']! : bt['tr']!,
+                                bt['label']!,
                                 style: TextStyle(
                                   color: selected
                                       ? Colors.white
@@ -326,7 +325,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ],
                   if (_bannerType == 'pattern') ...[
                     const SizedBox(height: 20),
-                    Text(t.pattern,
+                    Text(t.patternType,
                         style: TextStyle(
                             color: AppColors.text,
                             fontSize: 16,
@@ -335,7 +334,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: _patterns.map((p) {
+                      children: patterns.map((p) {
                         final selected = _bannerPattern == p['value'];
                         return GestureDetector(
                           onTap: () => setState(
@@ -350,7 +349,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              isEn ? p['en']! : p['tr']!,
+                              p['label']!,
                               style: TextStyle(
                                 color: selected
                                     ? Colors.white
@@ -403,13 +402,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ),
                       child: _saving
-                          ? SizedBox(
+                          ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
                                   color: Colors.white, strokeWidth: 2))
                           : Text(t.save,
-                              style: TextStyle(
+                              style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700)),
                     ),

@@ -3,11 +3,24 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class LikeService {
   static final _db = Supabase.instance.client;
 
-  // Beğeni ekle
+  // Beğeni ekle (duplicate koruması ile)
   static Future<bool> likeVideo(String videoId) async {
     try {
       final user = _db.auth.currentUser;
       if (user == null) return false;
+
+      // 🔥 Zaten beğenmiş mi?
+      final existing = await _db
+          .from('likes')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('video_id', videoId)
+          .maybeSingle();
+
+      if (existing != null) {
+        print('Already liked');
+        return true;
+      }
 
       await _db.from('likes').insert({
         'user_id': user.id,
